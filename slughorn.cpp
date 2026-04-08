@@ -34,11 +34,11 @@ uint32_t alignCursorForSpan(uint32_t cursor, uint32_t width, uint32_t span) {
 	return cursor;
 }
 
-} // namespace
+}
 
 namespace slughorn {
 
-Atlas::Atlas()  = default;
+Atlas::Atlas() = default;
 Atlas::~Atlas() = default;
 
 // =============================================================================
@@ -59,9 +59,9 @@ void Atlas::addShape(uint32_t key, const ShapeInfo& desc) {
 	if(!desc.autoMetrics) {
 		build.metrics.bearingX = desc.bearingX;
 		build.metrics.bearingY = desc.bearingY;
-		build.metrics.width    = desc.width;
-		build.metrics.height   = desc.height;
-		build.metrics.advance  = desc.advance;
+		build.metrics.width = desc.width;
+		build.metrics.height = desc.height;
+		build.metrics.advance = desc.advance;
 	}
 
 	// Clamp negative numBands to 0 (auto) — the signed sentinel is an API
@@ -101,10 +101,10 @@ const Atlas::Shape* Atlas::getShape(uint32_t key) const {
 // =============================================================================
 
 void Atlas::buildShapeBands(
-	uint32_t   key,
+	uint32_t key,
 	ShapeBuild& build,
-	uint32_t   numBands,
-	bool       overrideMetrics
+	uint32_t numBands,
+	bool overrideMetrics
 ) {
 	if(build.curves.empty()) {
 		_build[key] = build;
@@ -123,7 +123,7 @@ void Atlas::buildShapeBands(
 	// -------------------------------------------------------------------------
 	// Bounding box
 	// -------------------------------------------------------------------------
-	slug_t minX =  1e9_cv, minY =  1e9_cv;
+	slug_t minX = 1e9_cv, minY = 1e9_cv;
 	slug_t maxX = -1e9_cv, maxY = -1e9_cv;
 
 	for(const auto& c : build.curves) {
@@ -143,11 +143,11 @@ void Atlas::buildShapeBands(
 	// Derive metrics from bounding box when not overridden
 	// -------------------------------------------------------------------------
 	if(!overrideMetrics) {
-		build.metrics.width    = rangeX;
-		build.metrics.height   = rangeY;
+		build.metrics.width = rangeX;
+		build.metrics.height = rangeY;
 		build.metrics.bearingX = minX;
 		build.metrics.bearingY = maxY; // top of shape, Y-up convention
-		build.metrics.advance  = rangeX;
+		build.metrics.advance = rangeX;
 	}
 
 	// -------------------------------------------------------------------------
@@ -155,12 +155,12 @@ void Atlas::buildShapeBands(
 	// -------------------------------------------------------------------------
 	const slug_t fBands = cv(numBands);
 
-	build.metrics.bandScaleX  = fBands / rangeX;
-	build.metrics.bandScaleY  = fBands / rangeY;
+	build.metrics.bandScaleX = fBands / rangeX;
+	build.metrics.bandScaleY = fBands / rangeY;
 	build.metrics.bandOffsetX = -minX * build.metrics.bandScaleX;
 	build.metrics.bandOffsetY = -minY * build.metrics.bandScaleY;
-	build.metrics.bandMaxX    = numBands - 1;
-	build.metrics.bandMaxY    = numBands - 1;
+	build.metrics.bandMaxX = numBands - 1;
+	build.metrics.bandMaxY = numBands - 1;
 
 	// -------------------------------------------------------------------------
 	// Horizontal bands (sliced along Y)
@@ -179,7 +179,7 @@ void Atlas::buildShapeBands(
 		}
 
 		std::sort(band.curveIndices.begin(), band.curveIndices.end(), [&](size_t a, size_t b_) {
-			const slug_t mA = std::max({build.curves[a].x1,  build.curves[a].x2,  build.curves[a].x3});
+			const slug_t mA = std::max({build.curves[a].x1, build.curves[a].x2, build.curves[a].x3});
 			const slug_t mB = std::max({build.curves[b_].x1, build.curves[b_].x2, build.curves[b_].x3});
 
 			return mA > mB;
@@ -205,7 +205,7 @@ void Atlas::buildShapeBands(
 		}
 
 		std::sort(band.curveIndices.begin(), band.curveIndices.end(), [&](size_t a, size_t b_) {
-			const slug_t mA = std::max({build.curves[a].y1,  build.curves[a].y2,  build.curves[a].y3});
+			const slug_t mA = std::max({build.curves[a].y1, build.curves[a].y2, build.curves[a].y3});
 			const slug_t mB = std::max({build.curves[b_].y1, build.curves[b_].y2, build.curves[b_].y3});
 
 			return mA > mB;
@@ -239,7 +239,7 @@ void Atlas::packTextures() {
 
 	const uint32_t curveTexHeight = std::max(1u, (totalCurveTexels + TEX_WIDTH - 1) / TEX_WIDTH);
 
-	_curveData.width  = TEX_WIDTH;
+	_curveData.width = TEX_WIDTH;
 	_curveData.height = curveTexHeight;
 	_curveData.format = TextureData::Format::RGBA32F;
 	// 4 floats per texel
@@ -274,7 +274,7 @@ void Atlas::packTextures() {
 
 	const uint32_t bandTexHeight = std::max(1u, (totalBandTexels + TEX_WIDTH - 1) / TEX_WIDTH);
 
-	_bandData.width  = TEX_WIDTH;
+	_bandData.width = TEX_WIDTH;
 	_bandData.height = bandTexHeight;
 	_bandData.format = TextureData::Format::RGBA16UI;
 	// 4 uint16_t per texel
@@ -313,7 +313,7 @@ void Atlas::packTextures() {
 	// Pass 2: real packing
 	// -------------------------------------------------------------------------
 	uint32_t curveTexelOffset = 0;
-	uint32_t bandTexelOffset  = 0;
+	uint32_t bandTexelOffset = 0;
 
 	for(auto& kv : _build) {
 		const uint32_t key = kv.first;
@@ -328,7 +328,7 @@ void Atlas::packTextures() {
 
 			const auto& c = g.curves[ci];
 
-			writeCurveTexel(curveTexelOffset,     c.x1, c.y1, c.x2, c.y2);
+			writeCurveTexel(curveTexelOffset, c.x1, c.y1, c.x2, c.y2);
 			writeCurveTexel(curveTexelOffset + 1, c.x3, c.y3, 0_cv, 0_cv);
 
 			curveTexelOffset += 2;
@@ -337,8 +337,8 @@ void Atlas::packTextures() {
 		// --- Band headers + lists --------------------------------------------
 		Shape sd = g.metrics;
 
-		const uint32_t numHBands  = static_cast<uint32_t>(g.hbands.size());
-		const uint32_t numVBands  = static_cast<uint32_t>(g.vbands.size());
+		const uint32_t numHBands = static_cast<uint32_t>(g.hbands.size());
+		const uint32_t numVBands = static_cast<uint32_t>(g.vbands.size());
 		const uint32_t numHeaders = numHBands + numVBands;
 
 		if(numHeaders > TEX_WIDTH) {
@@ -370,7 +370,7 @@ void Atlas::packTextures() {
 
 				const uint32_t hi = headerBase + b;
 
-				headers[hi].count  = static_cast<uint16_t>(count);
+				headers[hi].count = static_cast<uint16_t>(count);
 				headers[hi].offset = static_cast<uint16_t>(cursor - shapeStart);
 
 				for(uint32_t i = 0; i < count; i++) {
@@ -407,4 +407,4 @@ void Atlas::packTextures() {
 	_build.clear();
 }
 
-} // namespace slughorn
+}
