@@ -50,9 +50,9 @@ namespace skia {
 
 // Decompose @p path into slughorn curves and append them to @p curves.
 //
-// @p scale is applied uniformly to every coordinate — use it to normalise
+// @p scale is applied uniformly to every coordinate — use it to normalize
 // path coordinates into the [0, 1] em-square that slughorn expects.
-// Pass 1.0 if your coordinates are already normalised.
+// Pass 1.0 if your coordinates are already normalized.
 //
 // Conic segments (kConic_Verb) are split into two ordinary quadratics.
 // Cubic segments (kCubic_Verb) are split at their midpoint into two
@@ -76,7 +76,7 @@ void decomposePath(
 // xx/yy = 1, xy/yx = 0). Store this in Layer::transform so that
 // ShapeDrawable::compile() can apply it when building the quad position.
 //
-// @p scale is applied after the local translation, normalising the local
+// @p scale is applied after the local translation, normalizing the local
 // bounding box into slughorn's em-space exactly as decomposePath() does for
 // the full canvas.
 //

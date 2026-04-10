@@ -114,7 +114,7 @@ bool loadShape(
 // Parse an entire NSVGimage into a CompositeShape - one `Layer` per filled `NSVGshape`,
 // back-to-front order preserved.
 //
-// @p scale normalises SVG canvas coordinates into slughorn's [0, 1] em-space. Pass scale = 0.0 to
+// @p scale normalizes SVG canvas coordinates into slughorn's [0, 1] em-space. Pass scale = 0.0 to
 // auto-compute from the SVG's viewBox width (equivalent to 1.0 / image->width).
 //
 // Keys are allocated sequentially from @p baseKey. On return, @p baseKey is advanced past the last
@@ -295,7 +295,7 @@ CompositeShape loadImage(
 		}
 	}
 
-	composite.advance = cv(image->width) * scale; // normalised width = 1.0
+	composite.advance = cv(image->width) * scale; // normalized width = 1.0
 
 	for(const NSVGshape* shape = image->shapes; shape; shape = shape->next) {
 		// Skip invisible shapes.
