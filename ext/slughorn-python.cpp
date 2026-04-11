@@ -1,40 +1,26 @@
 // =============================================================================
-// slughorn_python.cpp — pybind11 bindings for slughorn
+// slughorn-python.cpp - pybind11 bindings for slughorn
 //
 // Covers the core slughorn.hpp API:
 //   slughorn.Color, slughorn.Matrix
-//   slughorn.ColorLayer, slughorn.ColorGlyph
-//   slughorn.Atlas  (Curve, ShapeInfo, Shape, TextureData, + full Atlas class)
+//   slughorn.Layer, slughorn.CompositeShape
+//   slughorn.Atlas (Curve, ShapeInfo, Shape, TextureData, + full Atlas class)
 //   slughorn.CurveDecomposer
-//   slughorn.emoji  (submodule — nameToCodepoint, codepointToName, etc.)
+//   slughorn.emoji (submodule - nameToCodepoint, codepointToName, etc.)
 //
 // Texture data is exposed as py::memoryview (zero-copy, numpy-compatible).
 //
-// Backend submodules (ft2, skia, cairo) are stubbed at the bottom — uncomment
+// Backend submodules (ft2, skia, cairo) are stubbed at the bottom - uncomment
 // and implement when you add those bindings.
-//
-// BUILD
-// -----
-// CMakeLists.txt snippet:
-//
-//   find_package(pybind11 REQUIRED)
-//   add_library(slughorn_py MODULE slughorn_python.cpp slughorn.cpp)
-//   target_link_libraries(slughorn_py PRIVATE pybind11::module slughorn)
-//   set_target_properties(slughorn_py PROPERTIES
-//       OUTPUT_NAME "slughorn"
-//       PREFIX      ""
-//   )
-//
-// Then: import slughorn  in Python.
 //
 // OWNERSHIP NOTES
 // ---------------
 // Atlas is heap-allocated and managed by shared_ptr so that Python's GC and
-// C++ ref-counting cooperate safely.  ShapeInfo / Shape / TextureData are
+// C++ ref-counting cooperate safely. ShapeInfo / Shape / TextureData are
 // copied across the boundary (they are value types).
 //
 // memoryview returned from get_curve_texture_data() / get_band_texture_data()
-// borrows from the Atlas's internal buffer — keep the Atlas alive for the
+// borrows from the Atlas's internal buffer - keep the Atlas alive for the
 // duration of any view over its data.
 // =============================================================================
 
@@ -43,7 +29,7 @@
 #include "slughorn-emoji.hpp"
 
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>       // std::vector, std::optional, std::map
+#include <pybind11/stl.h> // std::vector, std::optional, std::map
 #include <pybind11/functional.h>
 
 namespace py = pybind11;
@@ -67,6 +53,12 @@ static py::memoryview bytesView(const std::vector<uint8_t>& v) {
 
 PYBIND11_MODULE(slughorn, m) {
     m.doc() = "slughorn — GPU-native vector shape renderer (Slug algorithm)";
+
+    py::class_<slughorn::Key>(m, "Key")
+        .def(py::init<>())
+        .def(py::init<uint32_t>())
+		.def_property_readonly("hash", &slughorn::Key::hash)
+	;
 
     // =========================================================================
     // slughorn.Color
@@ -123,28 +115,29 @@ PYBIND11_MODULE(slughorn, m) {
     ;
 
     // =========================================================================
-    // slughorn.ColorLayer / slughorn.ColorGlyph
+    // slughorn.Layer / slughorn.CompositeShape
     // =========================================================================
-    py::class_<slughorn::ColorLayer>(m, "ColorLayer")
+    py::class_<slughorn::Layer>(m, "Layer")
         .def(py::init<>())
-        .def_readwrite("key",   &slughorn::ColorLayer::key)
-        .def_readwrite("color", &slughorn::ColorLayer::color)
-        .def("__repr__", [](const slughorn::ColorLayer& l) {
-            return "ColorLayer(key=0x" + [&]{
-                char buf[16]; snprintf(buf, sizeof(buf), "%X", l.key); return std::string(buf);
+        .def_readwrite("key",   &slughorn::Layer::key)
+        .def_readwrite("color", &slughorn::Layer::color)
+        .def("__repr__", [](const slughorn::Layer& l) {
+            return "Layer(key=0x" + [&]{
+                char buf[16]; snprintf(buf, sizeof(buf), "%lX", l.key.hash());
+                return std::string(buf);
             }() + ")";
         })
     ;
 
-    py::class_<slughorn::ColorGlyph>(m, "ColorGlyph")
+    py::class_<slughorn::CompositeShape>(m, "CompositeShape")
         .def(py::init<>())
-        .def_readwrite("layers",  &slughorn::ColorGlyph::layers)
-        .def_readwrite("advance", &slughorn::ColorGlyph::advance)
-        .def("__len__", [](const slughorn::ColorGlyph& g) {
+        .def_readwrite("layers",  &slughorn::CompositeShape::layers)
+        .def_readwrite("advance", &slughorn::CompositeShape::advance)
+        .def("__len__", [](const slughorn::CompositeShape& g) {
             return g.layers.size();
         })
-        .def("__repr__", [](const slughorn::ColorGlyph& g) {
-            return "ColorGlyph(" + std::to_string(g.layers.size()) + " layers)";
+        .def("__repr__", [](const slughorn::CompositeShape& g) {
+            return "CompositeShape(" + std::to_string(g.layers.size()) + " layers)";
         })
     ;
 
