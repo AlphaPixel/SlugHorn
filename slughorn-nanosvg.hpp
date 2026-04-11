@@ -51,7 +51,13 @@
 #   define NANOSVG_IMPLEMENTATION
 #endif
 
+_Pragma("GCC diagnostic push") \
+_Pragma("GCC diagnostic ignored \"-Wsign-conversion\"") \
+_Pragma("GCC diagnostic ignored \"-Wshadow\"")
+
 #include "nanosvg.h"
+
+_Pragma("GCC diagnostic pop")
 
 #include <string>
 

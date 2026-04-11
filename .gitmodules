@@ -4,3 +4,6 @@
 [submodule "ext/nanosvg"]
 	path = ext/nanosvg
 	url = https://github.com/memononen/nanosvg
+[submodule "ext/json"]
+	path = ext/json
+	url = https://github.com/nlohmann/json.git

@@ -370,10 +370,41 @@ public:
 	const CompositeShape* getCompositeShape(Key key) const;
 
 	const TextureData& getCurveTextureData() const { return _curveData; }
-	const TextureData& getBandTextureData() const { return _bandData; }
+	const TextureData& getBandTextureData()  const { return _bandData; }
+
+	// Bulk accessors — primarily for serialization (slughorn-serial.hpp) and
+	// diagnostics. Prefer getShape() / getCompositeShape() for normal use.
+	const std::unordered_map<Key, Shape, KeyHash>& getShapes() const {
+		return _shapes;
+	}
+
+	const std::unordered_map<Key, CompositeShape, KeyHash>& getCompositeShapes() const {
+		return _compositeShapes;
+	}
 
 	bool hasKey(Key key) const {
-		return _build.count(key) || _shapes.count(key) || _composites.count(key);
+		return _build.count(key) || _shapes.count(key) || _compositeShapes.count(key);
+	}
+
+	// --------------------------------------------------------------------------------------------
+	// Serial reconstruction (used by slughorn-serial.hpp — not for general use)
+	//
+	// Injects pre-built texture data and shape/composite maps directly, bypassing build().
+	// The Atlas is marked as built on return; calling build() afterwards is a no-op.
+	// --------------------------------------------------------------------------------------------
+	struct SerialData {
+		TextureData                                      curveData;
+		TextureData                                      bandData;
+		std::unordered_map<Key, Shape, KeyHash>          shapes;
+		std::unordered_map<Key, CompositeShape, KeyHash> composites;
+	};
+
+	void loadFromSerial(SerialData&& sd) {
+		_curveData        = std::move(sd.curveData);
+		_bandData         = std::move(sd.bandData);
+		_shapes           = std::move(sd.shapes);
+		_compositeShapes  = std::move(sd.composites);
+		_built            = true;
 	}
 
 private:
@@ -403,9 +434,9 @@ private:
 	// --------------------------------------------------------------------------------------------
 	// Data
 	// --------------------------------------------------------------------------------------------
-	std::unordered_map<Key, ShapeBuild, KeyHash> _build; // discarded after build()
-	std::unordered_map<Key, Shape, KeyHash> _shapes; // live after build()
-	std::unordered_map<Key, CompositeShape, KeyHash> _composites; // live always
+	std::unordered_map<Key, ShapeBuild, KeyHash>     _build;           // discarded after build()
+	std::unordered_map<Key, Shape, KeyHash>           _shapes;          // live after build()
+	std::unordered_map<Key, CompositeShape, KeyHash>  _compositeShapes; // live always
 
 	TextureData _curveData;
 	TextureData _bandData;

@@ -1,5 +1,13 @@
 #include "slughorn.hpp"
 
+#ifdef SLUGHORN_SERIAL_IMPLEMENTATION
+#  include "slughorn-serial.hpp"
+#endif
+
+#ifdef SLUGHORN_NANOSVG_IMPLEMENTATION
+#  include "slughorn-nanosvg.hpp"
+#endif
+
 #include <algorithm>
 #include <cstring>
 
@@ -79,7 +87,7 @@ void Atlas::addShape(Key key, const ShapeInfo& desc) {
 // =============================================================================
 
 void Atlas::addCompositeShape(Key key, CompositeShape composite) {
-	_composites[key] = std::move(composite);
+	_compositeShapes[key] = std::move(composite);
 }
 
 // =============================================================================
@@ -109,9 +117,9 @@ const Atlas::Shape* Atlas::getShape(Key key) const {
 // =============================================================================
 
 const CompositeShape* Atlas::getCompositeShape(Key key) const {
-	const auto it = _composites.find(key);
+	const auto it = _compositeShapes.find(key);
 
-	return it != _composites.end() ? &it->second : nullptr;
+	return it != _compositeShapes.end() ? &it->second : nullptr;
 }
 
 // =============================================================================

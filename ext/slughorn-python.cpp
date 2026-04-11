@@ -423,6 +423,26 @@ PYBIND11_MODULE(slughorn, m) {
             py::arg("key"),
             "Return True if key is registered (shape, composite, or pending build).")
 
+        // Bulk accessors — primarily for slughorn_serial.py
+        .def("get_shapes",
+            [](const slughorn::Atlas& a) {
+                // Return a Python dict {Key: Shape} — copies values (Shape is small)
+                py::dict d;
+                for(const auto& [k, v] : a.getShapes()) d[py::cast(k)] = v;
+                return d;
+            },
+            "Return a dict of all {Key: Shape} entries (valid after build()). "
+            "Primarily used by slughorn_serial for serialization.")
+
+        .def("get_composite_shapes",
+            [](const slughorn::Atlas& a) {
+                py::dict d;
+                for(const auto& [k, v] : a.getCompositeShapes()) d[py::cast(k)] = v;
+                return d;
+            },
+            "Return a dict of all {Key: CompositeShape} entries. "
+            "Primarily used by slughorn_serial for serialization.")
+
         // --- Texture access --------------------------------------------------
         //
         // Both a structured TextureData object (preferred — gives you .width,
