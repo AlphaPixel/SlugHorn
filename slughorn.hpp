@@ -98,7 +98,7 @@ struct Matrix {
 };
 
 // ================================================================================================
-// Atlas (forward declaration — Key is needed by Layer)
+// Atlas (forward declaration - Key is needed by Layer)
 // ================================================================================================
 class Atlas;
 
@@ -107,9 +107,9 @@ class Atlas;
 //
 // Discriminated union identifying a shape or composite shape in the Atlas. Two flavors:
 //
-//   Key::fromCodepoint(cp)  — a Unicode codepoint (or any uint32_t ID). Implicitly constructible
-//                             from uint32_t for backwards compatibility with existing call sites.
-//   Key::fromString(name)   — a named shape / composite ("logo", "axolotl", …)
+//   Key::fromCodepoint(cp) - a Unicode codepoint (or any uint32_t ID). Implicitly constructible
+//                            from uint32_t for backwards compatibility with existing call sites.
+//   Key::fromString(name) - a named shape / composite ("logo", "axolotl", ...)
 //
 // The hash is computed once at construction and stored; KeyHash just returns it. operator== uses
 // the hash as a fast pre-check, then falls back to value comparison. The two namespaces are kept
@@ -119,25 +119,25 @@ class Atlas;
 struct Key {
 	enum class Type { Codepoint, Name };
 
-	// --- Construction -----------------------------------------------------------
-
 	// With this in the public section:
-	Key() : _type(Type::Codepoint), _codepoint(0), _hash(_hashCp(0)) {}
+	Key(): _type(Type::Codepoint), _codepoint(0), _hash(_hashCp(0)) {}
 
-	// Implicit from uint32_t — preserves all existing call sites unchanged.
-	Key(uint32_t cp) : _type(Type::Codepoint), _codepoint(cp), _hash(_hashCp(cp)) {}
+	// Implicit from uint32_t - preserves all existing call sites unchanged.
+	Key(uint32_t cp): _type(Type::Codepoint), _codepoint(cp), _hash(_hashCp(cp)) {}
 
 	static Key fromCodepoint(uint32_t cp) { return Key(cp); }
 
 	static Key fromString(std::string name) {
 		Key k;
+
 		k._type = Type::Name;
 		k._name = std::move(name);
 		k._hash = _hashStr(k._name);
+
 		return k;
 	}
 
-	// --- Accessors --------------------------------------------------------------
+	// Accessors
 
 	Type type() const { return _type; }
 
@@ -149,7 +149,7 @@ struct Key {
 
 	size_t hash() const { return _hash; }
 
-	// --- Equality ---------------------------------------------------------------
+	// Equality
 
 	bool operator==(const Key& o) const {
 		if(_hash != o._hash) return false;
@@ -165,19 +165,25 @@ private:
 		// Mix a type tag (0) into the seed so the codepoint and name namespaces
 		// cannot collide even if their raw hashes match.
 		size_t h = std::hash<uint32_t>{}(cp);
+
 		h ^= std::hash<size_t>{}(0) + 0x9e3779b9 + (h << 6) + (h >> 2);
+
 		return h;
 	}
 
 	static size_t _hashStr(const std::string& s) {
 		size_t h = std::hash<std::string>{}(s);
+
 		h ^= std::hash<size_t>{}(1) + 0x9e3779b9 + (h << 6) + (h >> 2);
+
 		return h;
 	}
 
 	Type _type = Type::Codepoint;
+
 	uint32_t _codepoint = 0;
 	std::string _name;
+
 	size_t _hash = 0;
 };
 
@@ -197,6 +203,18 @@ struct Layer {
 	Color color{};
 
 	Matrix transform = Matrix::identity();
+
+	// Shader effect to apply when rendering this layer. 0 = standard Slug coverage fill (default,
+	// no overhead). Non-zero values select an effect branch in the fragment shader; the set of
+	// valid IDs and their semantics are defined there. For example, something like:
+	//
+	//   0 - standard fill (color * slug coverage); this should ALWAYS be the 0/default
+	//   1 - texture fill (texture(slug_effectTexture, v_emCoord) * slug coverage)
+	//   2 - GLSL procedural
+	//   3 - Etc, etc.
+	//
+	// TODO: It is likely this will be called `fillMode` or similar in future versions!
+	uint32_t effectId = 0;
 };
 
 // ================================================================================================
@@ -491,7 +509,7 @@ inline std::ostream& operator<<(std::ostream& os, const Matrix& m) {
 }
 
 inline std::ostream& operator<<(std::ostream& os, const Layer& l) {
-	return os << "Layer(" << l.key << " color=" << l.color << " transform=" << l.transform << ")";
+	return os << "Layer(" << l.key << " color=" << l.color << " transform=" << l.transform << " effectId=" << l.effectId << ")";
 }
 
 inline std::ostream& operator<<(std::ostream& os, const Atlas::Shape& s) {
