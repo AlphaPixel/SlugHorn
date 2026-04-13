@@ -286,8 +286,10 @@ PYBIND11_MODULE(slughorn, m) {
         .def_readwrite("width",        &slughorn::Atlas::ShapeInfo::width)
         .def_readwrite("height",       &slughorn::Atlas::ShapeInfo::height)
         .def_readwrite("advance",      &slughorn::Atlas::ShapeInfo::advance)
-        .def_readwrite("num_bands",    &slughorn::Atlas::ShapeInfo::numBands,
-            "Number of bands (0 = auto-pick a sensible default).")
+        .def_readwrite("num_bands_x",    &slughorn::Atlas::ShapeInfo::numBandsX,
+            "Number of X bands (0 = auto-pick a sensible default).")
+        .def_readwrite("num_bands_y",    &slughorn::Atlas::ShapeInfo::numBandsY,
+            "Number of Y bands (0 = auto-pick a sensible default).")
     ;
 
     // =========================================================================

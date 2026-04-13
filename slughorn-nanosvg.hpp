@@ -194,11 +194,12 @@ void decomposeShape(const NSVGshape* shape, Atlas::Curves& curves, slug_t scale)
 		}
 
 		if(path->closed) {
+			decomposer.close();
 			// Close back to the path start with a line if needed.  CurveDecomposer::lineTo will
 			// emit a degenerate quadratic.
-			const float* start = path->pts;
+			// const float* start = path->pts;
 
-			decomposer.lineTo(cv(start[0]) * scale, cv(start[1]) * scale);
+			// decomposer.lineTo(cv(start[0]) * scale, cv(start[1]) * scale);
 		}
 	}
 }
@@ -243,9 +244,10 @@ bool decomposeShapeLocal(
 		}
 
 		if(path->closed) {
-			const float* start = path->pts;
+			decomposer.close();
+			// const float* start = path->pts;
 
-			decomposer.lineTo(cv(start[0] - minX) * scale, cv(start[1] - minY) * scale);
+			// decomposer.lineTo(cv(start[0] - minX) * scale, cv(start[1] - minY) * scale);
 		}
 	}
 

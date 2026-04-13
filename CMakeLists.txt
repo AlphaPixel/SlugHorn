@@ -121,3 +121,41 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 	target_compile_options(slughorn_python PRIVATE ${SLUGHORN_COMPILE_OPTIONS})
 	set_target_properties(slughorn_python PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
+
+# =============================================================================
+# Tests (optional, enable with -DSLUGHORN_BUILD_TESTS=ON)
+# =============================================================================
+option(SLUGHORN_BUILD_TESTS "Compile testing files" OFF)
+
+if(SLUGHORN_BUILD_TESTS)
+	enable_testing()
+
+	find_package(PkgConfig REQUIRED)
+
+	# Cairo (optional)
+	pkg_check_modules(CAIRO IMPORTED_TARGET cairo)
+
+	if(CAIRO_FOUND)
+		add_executable(slughorn-test-cairo test/slughorn-test-cairo.cpp)
+		target_link_libraries(slughorn-test-cairo PRIVATE slughorn PkgConfig::CAIRO)
+		add_test(NAME cairo COMMAND slughorn-test-cairo)
+		message(STATUS "slughorn tests: Cairo found, building slughorn-test-cairo")
+	else()
+		message(STATUS "slughorn tests: Cairo not found, skipping slughorn-test-cairo")
+	endif()
+
+	# NanoSVG (optional - requires SLUGHORN_NANOSVG=ON)
+	if(SLUGHORN_NANOSVG)
+		add_executable(slughorn-test-nanosvg test/slughorn-test-nanosvg.cpp)
+
+		target_include_directories(slughorn-test-nanosvg PRIVATE
+			"${CMAKE_CURRENT_SOURCE_DIR}/ext/nanosvg/src"
+		)
+
+		target_link_libraries(slughorn-test-nanosvg PRIVATE slughorn)
+		add_test(NAME nanosvg COMMAND slughorn-test-nanosvg)
+		message(STATUS "slughorn tests: NanoSVG enabled, building slughorn-test-nanosvg")
+	else()
+		message(STATUS "slughorn tests: SLUGHORN_NANOSVG=OFF, skipping slughorn-test-nanosvg")
+	endif()
+endif()

@@ -97,6 +97,11 @@ struct Matrix {
 	}
 };
 
+struct Quad {
+	slug_t x0, y0; // bottom-left
+	slug_t x1, y1; // top-right
+};
+
 // ================================================================================================
 // Atlas (forward declaration - Key is needed by Layer)
 // ================================================================================================
@@ -283,6 +288,25 @@ public:
 		slug_t bearingX = 0, bearingY = 0;
 		slug_t width = 0, height = 0;
 		slug_t advance = 0;
+
+		/* Quad computeQuad(slug_t originX, slug_t originY, slug_t scale, slug_t expand = 0.0_cv) const {
+			return {
+				originX + (bearingX - expand) * scale,
+				originY + (bearingY - height - expand) * scale,
+				originX + (bearingX + width + expand) * scale,
+				originY + (bearingY + expand) * scale
+			};
+		} */
+
+		Quad computeQuad(const Matrix& transform, slug_t expand=0.0_cv) const {
+			return {
+				transform.dx + (bearingX - expand),
+				transform.dy + (bearingY - height - expand),
+				transform.dx + (bearingX + width + expand),
+				transform.dy + (bearingY + expand)
+			};
+		}
+
 	};
 
 	// Descriptor passed to addShape().
@@ -461,12 +485,14 @@ struct CurveDecomposer {
 
 	slug_t _x = 0_cv;
 	slug_t _y = 0_cv;
+	slug_t _sx = 0_cv;
+	slug_t _sy = 0_cv;
 
 	CurveDecomposer(Atlas::Curves& c) : curves(c) {}
 
 	void moveTo(slug_t x, slug_t y) {
-		_x = x;
-		_y = y;
+		_x = _sx = x;
+		_y = _sy = y;
 	}
 
 	void lineTo(slug_t x3, slug_t y3) {
@@ -518,6 +544,14 @@ struct CurveDecomposer {
 		_x = p3x;
 		_y = p3y;
 	}
+
+	// Close the current subpath by drawing a line back to the subpath start.
+	// No-op if the current position is already at the start (degenerate close).
+	void close() {
+		constexpr slug_t eps = 1e-6_cv;
+
+		if(std::abs(_x - _sx) > eps || std::abs(_y - _sy) > eps) lineTo(_sx, _sy);
+	}
 };
 
 // ================================================================================================
@@ -525,8 +559,10 @@ struct CurveDecomposer {
 // ================================================================================================
 
 inline std::ostream& operator<<(std::ostream& os, const Key& k) {
-	if(k.type() == Key::Type::Codepoint)
-		return os << "Key(0x" << std::hex << k.codepoint() << std::dec << ")";
+	if(k.type() == Key::Type::Codepoint) return os << "Key(0x"
+		<< std::hex << k.codepoint() << std::dec << ")"
+	;
+
 	return os << "Key(\"" << k.name() << "\")";
 }
 
@@ -542,16 +578,41 @@ inline std::ostream& operator<<(std::ostream& os, const Matrix& m) {
 	;
 }
 
+inline std::ostream& operator<<(std::ostream& os, const Quad& q) {
+	return os
+		<< "Quad("
+		<< "(" << q.x0 << "," << q.y0 << ")"
+		<< " -> (" << q.x1 << "," << q.y1 << ")"
+		<< ")"
+	;
+}
+
 inline std::ostream& operator<<(std::ostream& os, const Layer& l) {
-	return os << "Layer(" << l.key << " color=" << l.color << " transform=" << l.transform << " effectId=" << l.effectId << ")";
+	return os
+		<< "Layer(" << l.key
+		<< " color=" << l.color
+		<< " transform=" << l.transform
+		<< " effectId=" << l.effectId << ")"
+	;
 }
 
 inline std::ostream& operator<<(std::ostream& os, const Atlas::Shape& s) {
 	return os
 		<< "Shape(w=" << s.width << " h=" << s.height
-		<< " bx=" << s.bearingX << " by=" << s.bearingY
+		<< " bearing=" << s.bearingX << "/" << s.bearingY
 		<< " bandScale=" << s.bandScaleX << "/" << s.bandScaleY
-		<< " bandOffset=" << s.bandOffsetX << "/" << s.bandOffsetY << ")";
+		<< " bandOffset=" << s.bandOffsetX << "/" << s.bandOffsetY << ")"
+	;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const Atlas::Curve& c) {
+	return os
+		<< "Curve("
+		<< "(" << c.x1 << "," << c.y1 << ")"
+		<< " -> (" << c.x2 << "," << c.y2 << ")"
+		<< " -> (" << c.x3 << "," << c.y3 << ")"
+		<< ")"
+	;
 }
 
 }
