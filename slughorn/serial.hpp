@@ -248,8 +248,21 @@ Key keyFromJson(const json& j) {
 	throw std::runtime_error("slughorn-serial: unknown key type '" + type + "'");
 }
 
+Atlas::TextureData::Format textureFormatFromString(const std::string& fmt) {
+	if(fmt == "RGBA32F") return Atlas::TextureData::Format::RGBA32F;
+	if(fmt == "RGBA16F") return Atlas::TextureData::Format::RGBA16F;
+	if(fmt == "RGBA16UI") return Atlas::TextureData::Format::RGBA16UI;
+	if(fmt == "RG16UI") return Atlas::TextureData::Format::RG16UI;
+	if(fmt == "RGBA8") return Atlas::TextureData::Format::RGBA8;
+	if(fmt == "RGB32F") return Atlas::TextureData::Format::RGB32F;
+
+	throw std::runtime_error("slughorn-serial: unknown texture format '" + fmt + "'");
+}
+
 json packingStatsToJson(const Atlas::PackingStats& p) {
 	return {
+		{"curve_format", detail::to_sstr(p.curveFormat)},
+		{"band_format", detail::to_sstr(p.bandFormat)},
 		{"curve_texels_used", p.curveTexelsUsed},
 		{"curve_texels_padding", p.curveTexelsPadding},
 		{"curve_texels_total", p.curveTexelsTotal},
@@ -273,6 +286,8 @@ json packingStatsToJson(const Atlas::PackingStats& p) {
 Atlas::PackingStats packingStatsFromJson(const json& j) {
 	Atlas::PackingStats p;
 
+	p.curveFormat = textureFormatFromString(j.value("curve_format", std::string("RGBA32F")));
+	p.bandFormat = textureFormatFromString(j.value("band_format", std::string("RG16UI")));
 	p.curveTexelsUsed = j.at("curve_texels_used").get<uint32_t>();
 	p.curveTexelsPadding = j.at("curve_texels_padding").get<uint32_t>();
 	p.curveTexelsTotal = j.at("curve_texels_total").get<uint32_t>();
@@ -549,15 +564,7 @@ Atlas atlasFromJson(
 		td.height = bv.at("height");
 		td.depth = bv.value("depth", 0u);
 
-		const std::string fmt = bv.at("format");
-
-		if (fmt == "RGBA32F") td.format = Atlas::TextureData::Format::RGBA32F;
-		else if(fmt == "RGBA16F") td.format = Atlas::TextureData::Format::RGBA16F;
-		else if(fmt == "RGBA16UI") td.format = Atlas::TextureData::Format::RGBA16UI;
-		else if(fmt == "RG16UI") td.format = Atlas::TextureData::Format::RG16UI;
-		else if(fmt == "RGBA8") td.format = Atlas::TextureData::Format::RGBA8;
-		else if(fmt == "RGB32F") td.format = Atlas::TextureData::Format::RGB32F;
-		else throw std::runtime_error("slughorn-serial: unknown texture format '" + fmt + "'");
+		td.format = textureFormatFromString(bv.at("format").get<std::string>());
 
 		if(binChunk) {
 			const uint32_t offset = bv.at("byteOffset");

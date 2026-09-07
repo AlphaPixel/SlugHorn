@@ -8,7 +8,7 @@
 // groups the resulting rings into exterior/hole sets, and triangulates each group via
 // mapbox/earcut.hpp. A shape may have any number of disjoint exterior rings (e.g. the two dots
 // of an umlaut) each with zero or more holes (e.g. the counters of a lowercase "e"); rings are
-// classified by signed area (CCW = exterior, CW = hole -- slughorn's standing winding
+// classified by signed area (CCW = exterior, CW = hole - slughorn's standing winding
 // convention, see render.hpp's msdfgen-orientation note) and assigned to their owning exterior
 // via point-in-polygon containment.
 //
@@ -36,7 +36,7 @@ namespace tessellate {
 
 // Flat triangle mesh in the shape's own XY (em-space) plane. `positions` is xy-interleaved;
 // `indices` is a flat triangle list (3 per triangle, CCW winding in a y-up coordinate system).
-// Raw data out -- caller owns any GPU upload.
+// Raw data out - caller owns any GPU upload.
 struct Mesh2D {
 	std::vector<slug_t> positions;
 	std::vector<uint32_t> indices;
@@ -153,7 +153,7 @@ inline std::vector<Group> groupContours(const std::vector<Ring>& rings) {
 	for(size_t i = 0; i < rings.size(); i++) {
 		if(signedArea2(rings[i]) >= 0_cv) continue;
 
-		// Assign to the smallest-area exterior that contains this hole's first point -- handles
+		// Assign to the smallest-area exterior that contains this hole's first point - handles
 		// nested exteriors (e.g. one glyph component sitting inside another's counter).
 		slug_t bestArea = std::numeric_limits<slug_t>::max();
 		int bestGroup = -1;
@@ -227,8 +227,8 @@ inline Mesh2D tessellate(const Atlas::Contours& contours, slug_t tolerance = TOL
 
 // Extrudes `contours` (as returned by Atlas::getShapeContours()) into a closed 3D solid: a top
 // cap at z=depth, a bottom cap at z=0 (reversed winding so both caps face outward), and a
-// ruled quad-strip wall connecting every ring -- exterior boundaries and hole boundaries alike
-// -- between the two.
+// ruled quad-strip wall connecting every ring - exterior boundaries and hole boundaries alike
+// - between the two.
 inline Mesh3D extrude(
 	const Atlas::Contours& contours,
 	slug_t depth,

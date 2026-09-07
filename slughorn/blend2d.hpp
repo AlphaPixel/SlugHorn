@@ -32,11 +32,11 @@
 // -----------------------
 // Blend2D's BLPathView stores one vertex per command entry. Multi-vertex primitives use
 // consecutive command tags:
-//   QUAD   -> [BL_PATH_CMD_QUAD, BL_PATH_CMD_ON]              -- 2 vertices (cp, end)
-//   CUBIC  -> [BL_PATH_CMD_CUBIC, BL_PATH_CMD_CUBIC,
-//              BL_PATH_CMD_ON]                                -- 3 vertices (cp1, cp2, end)
-//   CONIC  -> [BL_PATH_CMD_CONIC, BL_PATH_CMD_WEIGHT,
-//              BL_PATH_CMD_ON]                                -- 3 vertices (cp, weight, end)
+//
+// QUAD -> [BL_PATH_CMD_QUAD, BL_PATH_CMD_ON] - 2 vertices (cp, end)
+// CUBIC -> [BL_PATH_CMD_CUBIC, BL_PATH_CMD_CUBIC, BL_PATH_CMD_ON] - 3 vertices (cp1, cp2, end)
+// CONIC -> [BL_PATH_CMD_CONIC, BL_PATH_CMD_WEIGHT, BL_PATH_CMD_ON] - 3 vertices (cp, weight, end)
+//
 // CONIC curves are approximated as quadratics (weight ignored). Conics appear only when a
 // BLPath contains arc geometry built via arc_to; for typical authored vector paths this is rare.
 //
@@ -103,7 +103,7 @@ Transform loadShape(
 );
 
 // Expand @p path as a stroke (using @p stroke options) to a filled outline, then register
-// the result in @p atlas under @p key. Uses Blend2D's stroke-to-fill expansion -- the
+// the result in @p atlas under @p key. Uses Blend2D's stroke-to-fill expansion - the
 // primary advantage this backend has over Cairo.
 //
 // @p stroke controls width, join, cap, and dash; use a default-constructed BLStrokeOptions
@@ -213,7 +213,7 @@ std::pair<Atlas::ShapeInfo, Transform> decomposePath(
 				break;
 
 			default:
-				// BL_PATH_CMD_WEIGHT -- consumed by CONIC above; skip defensively.
+				// BL_PATH_CMD_WEIGHT - consumed by CONIC above; skip defensively.
 				ci += 1; vi += 1;
 
 				break;

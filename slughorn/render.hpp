@@ -431,7 +431,7 @@ inline Sampler decode(
 		throw std::runtime_error("Unexpected band texture format")
 	;
 
-	// RG16UI (current) is 2 uint16_t/texel; RGBA16UI (legacy read-compat) is 4 -- callers only
+	// RG16UI (current) is 2 uint16_t/texel; RGBA16UI (legacy read-compat) is 4 - callers only
 	// ever read indices 0/1 either way (B/A were never consumed even in the legacy format).
 	const uint32_t bandStride = bandIsLegacy ? 4 : 2;
 
@@ -524,7 +524,7 @@ inline Sampler decode(
 				const uint32_t cy = texel[1];
 
 				// Raw texel address of the curve's first texel, used directly as the dedup/remap
-				// key -- NOT divided down into a "curve index" via an assumed 2-texels-per-curve
+				// key - NOT divided down into a "curve index" via an assumed 2-texels-per-curve
 				// stride. That assumption breaks once endpoint-shared packing lets a curve's
 				// first texel land at an odd offset (a shared texel isn't always curve-aligned).
 				const uint32_t idx = cy * curveTex.width + cx;

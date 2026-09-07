@@ -39,7 +39,7 @@ inline std::string to_sstr(const auto&... args) {
 }
 
 // IEEE 754 binary32 -> binary16, round-to-nearest-even. Values below the smallest normal
-// half (~6.1e-5) flush to zero rather than encoding a denormal -- curve/em coordinates never
+// half (~6.1e-5) flush to zero rather than encoding a denormal - curve/em coordinates never
 // legitimately operate at that scale, so the extra denormal-handling complexity isn't worth it.
 inline uint16_t floatToHalf(float value) {
 	uint32_t bits;
@@ -385,7 +385,7 @@ class Atlas;
 struct Key {
 	enum class Type { Codepoint, Name };
 
-	// Bit layout for Type::Codepoint keys -- packed into the same _codepoint field, no new struct
+	// Bit layout for Type::Codepoint keys - packed into the same _codepoint field, no new struct
 	// member: [0..20] real Unicode codepoint (max valid U+10FFFF fits in 21 bits), [21..28] an
 	// opt-in caller-defined "mask" (namespace) that defaults to 0, [29..31] reserved for
 	// KeyIterator::AUTO_KEY_START's auto-key range. Key(48) is bit-identical to Key(48, 0).
@@ -402,7 +402,7 @@ struct Key {
 
 	// Opt-in namespacing: packs a caller-defined mask (0-255) alongside the real codepoint so two
 	// unrelated sources (e.g. two fonts) can register the same raw codepoint without silently
-	// aliasing one atlas entry onto the other's -- see NEXT_SESSION.md's "Key mask" design note.
+	// aliasing one atlas entry onto the other's - see NEXT_SESSION.md's "Key mask" design note.
 	Key(uint32_t cp, uint8_t mask):
 		_type(Type::Codepoint),
 		_codepoint((cp & CODEPOINT_MASK) | (uint32_t(mask) << MASK_SHIFT)),
@@ -417,7 +417,7 @@ struct Key {
 	Type type() const { return _type; }
 
 	// Only valid when type() == Codepoint. Returns the full raw packed value (mask bits included,
-	// if any) -- Key(k.codepoint()) reconstructs an identical Key.
+	// if any) - Key(k.codepoint()) reconstructs an identical Key.
 	uint32_t codepoint() const { return _codepoint; }
 
 	// Only valid when type() == Codepoint. Real Unicode codepoint with any mask bits stripped.
@@ -475,16 +475,16 @@ struct KeyHash {
 
 struct KeyIterator {
 	// Default start is well above the valid Unicode codepoint range (max U+10FFFF = 1,114,111) so
-	// an unprefixed counter can never collide with a real font glyph's Key(codepoint) -- see
+	// an unprefixed counter can never collide with a real font glyph's Key(codepoint) - see
 	// AUTO_KEY_START's own comment. Passing an explicit _counter opts out of that protection (e.g.
-	// deliberately reconstructing a specific sequence) -- on the caller's head at that point.
+	// deliberately reconstructing a specific sequence) - on the caller's head at that point.
 	static constexpr uint32_t AUTO_KEY_START = 0x20000000;
 
 	KeyIterator(uint32_t _counter=AUTO_KEY_START): counter(_counter) {}
 
 	// Prefixed iterators always produce Type::Name keys (Key(prefix + "_" + to_string(counter++))),
 	// which can never collide with a Type::Codepoint key regardless of the number (Key's hash mixes
-	// in a type tag; operator== checks _type first) -- so unlike the unprefixed constructor above,
+	// in a type tag; operator== checks _type first) - so unlike the unprefixed constructor above,
 	// there's no reason to inherit AUTO_KEY_START's offset here. Starts at 0 for readable names
 	// ("prefix_0", "prefix_1", ...).
 	KeyIterator(const char* _prefix, bool _force=false): prefix(_prefix), counter(0), force(_force) {}
@@ -499,7 +499,7 @@ struct KeyIterator {
 	std::string prefix;
 
 	// freetype.hpp's loadGlyphRange() registers codepoints as low as 32 (space) by default via
-	// Key(uint32_t) -- the SAME type/constructor an unprefixed counter starting at 0 would use, so
+	// Key(uint32_t) - the SAME type/constructor an unprefixed counter starting at 0 would use, so
 	// it WILL eventually reach and silently overwrite a loaded glyph's atlas entry in any scene
 	// with enough auto-keyed commits (mask()/textGlyph()/fill()/stroke()). AUTO_KEY_START gives
 	// ~4000x headroom past U+10FFFF, still ~3.9 billion keys of runway. Deliberately NOT switched
@@ -860,7 +860,7 @@ public:
 		Curves curves = {};
 
 		// Subpath-start indices into `curves` (index 0 always explicit, unlike canvas::Path's
-		// internal storage convention -- see canvas::Path::pendingContourStarts()). Populated by
+		// internal storage convention - see canvas::Path::pendingContourStarts()). Populated by
 		// Canvas's commit verbs, which know their own boundaries exactly; empty means "unknown,"
 		// in which case getShapeContours() falls back to inferring boundaries from a coordinate
 		// gap (the only option for callers that build ShapeInfo::curves directly, e.g.
@@ -958,7 +958,7 @@ public:
 		uint32_t scanlineCurveCount = 0;
 
 		// Layer index in the MSDF Texture2DArray; -1 = no MSDF tile rendered for this shape yet
-		// (either never requested, or requested pre-build and still queued -- see
+		// (either never requested, or requested pre-build and still queued - see
 		// Atlas::requestMSDF()). Set once Atlas::requestMSDF() actually renders the tile.
 		int msdfLayer = -1;
 
@@ -972,7 +972,7 @@ public:
 		Curves curves;
 
 		// Same convention as ShapeInfo::contourStarts (index 0 explicit, empty = unknown).
-		// Populated by Atlas::addShape() from ShapeInfo::contourStarts -- NEVER by serial::read():
+		// Populated by Atlas::addShape() from ShapeInfo::contourStarts - NEVER by serial::read():
 		// render::decode() reconstructs `curves` from packed band/curve texture data on load,
 		// which does not preserve original authoring order, so any persisted contourStarts would
 		// silently split the WRONG boundaries. getShapeContours() falls back to its coordinate-gap
@@ -1024,9 +1024,9 @@ public:
 	// a GPU texture (width/height are in texels); `format` tells the graphics backend how to
 	// interpret the bytes:
 	//
-	// RGBA32F - four 32-bit floats per texel (curve texture, default -- see setCurveTextureFormat())
+	// RGBA32F - four 32-bit floats per texel (curve texture, default - see setCurveTextureFormat())
 	// RGBA16F - four 16-bit floats per texel (curve texture, opt-in; matches the reference Slug
-	//   format, halves curve-texture memory, real precision tradeoff -- see setCurveTextureFormat())
+	//   format, halves curve-texture memory, real precision tradeoff - see setCurveTextureFormat())
 	// RG16UI - two 16-bit unsigned ints per texel (band texture, current default). B/A are never
 	//   consumed by the shader (indirection entries read only R; headers/curve locations read
 	//   only RG) for any content type, so this is lossless, not a tradeoff like RGBA16F.
@@ -1086,7 +1086,7 @@ public:
 	};
 
 	struct PackingStats {
-		// Which format the curve texture was actually packed in -- set by packTextures() from
+		// Which format the curve texture was actually packed in - set by packTextures() from
 		// whatever Atlas::setCurveTextureFormat() was called with (RGBA32F by default).
 		TextureData::Format curveFormat = TextureData::Format::RGBA32F;
 
@@ -1096,7 +1096,7 @@ public:
 		uint32_t curveTexelsPadding = 0; // texels wasted to row-alignment bumps
 		uint32_t curveTexelsTotal = 0; // width * height (allocated)
 
-		// Which format the band texture was actually packed in -- RG16UI by default (current
+		// Which format the band texture was actually packed in - RG16UI by default (current
 		// packTextures() output); only ever RGBA16UI when loaded from a pre-2026-08-29 file.
 		TextureData::Format bandFormat = TextureData::Format::RG16UI;
 
@@ -1318,7 +1318,7 @@ public:
 	// precision is imperceptible.
 	//
 	// RGBA16F: matches the reference Slug curve texture format, halves curve-texture memory.
-	// Real precision tradeoff, not just a repack -- can visibly degrade shape edges under heavy
+	// Real precision tradeoff, not just a repack - can visibly degrade shape edges under heavy
 	// zoom (quantization that's sub-pixel at normal scale becomes multi-pixel once magnified).
 	// Only argument accepted is RGBA32F or RGBA16F; anything else throws.
 	void setCurveTextureFormat(TextureData::Format format) {
@@ -1362,20 +1362,20 @@ public:
 	// replaces the previous definition.
 	void addCompositeShape(Key key, CompositeShape composite);
 
-	// Merge another, already-built Atlas's shapes and composites into this one -- e.g. an
+	// Merge another, already-built Atlas's shapes and composites into this one - e.g. an
 	// embedded fallback font or a standalone icon-set library loaded via serial::read().
 	//
-	// Must be called before build() (same precondition as addShape() -- silently no-ops if this
+	// Must be called before build() (same precondition as addShape() - silently no-ops if this
 	// atlas is already built). @p source must itself already be built: its getShapes() is what
 	// gets walked, and that map is only populated post-build() (or post-serial::read()).
 	//
 	// @p mask namespaces Type::Codepoint keys, reusing Key's existing bit-packed mask field (see
-	// Key(uint32_t, uint8_t)) -- the same collision-avoidance mechanism freetype::LoadConfig::mask
+	// Key(uint32_t, uint8_t)) - the same collision-avoidance mechanism freetype::LoadConfig::mask
 	// already uses for live FreeType loads. The full raw packed codepoint is preserved (including
 	// any KeyIterator::AUTO_KEY_START marker bits); only the mask field is replaced. mask=0 is a
 	// reasonable default for a real, bounded-codepoint source (a font); it is NOT safe for a
 	// source keyed via an unprefixed KeyIterator (e.g. auto-keyed icon shapes), since those already
-	// collide with any other atlas built the same way -- pick a distinct mask per such source.
+	// collide with any other atlas built the same way - pick a distinct mask per such source.
 	//
 	// @p namePrefix independently namespaces Type::Name keys as `namePrefix + ":" + name`. Empty
 	// (the default) leaves Name keys unprefixed; two sources sharing an unprefixed name silently
@@ -1455,13 +1455,13 @@ public:
 	// for the entire atlas. All layers in a sampler2DArray must be identical - mixing sizes
 	// is a hard GPU constraint. Defaults to 128 if never called.
 	//
-	// Call requestMSDF() for each shape whenever it's convenient -- authoring time (before
+	// Call requestMSDF() for each shape whenever it's convenient - authoring time (before
 	// build(), the common case: right after addShape()/Canvas::fill()/Canvas::mask() commits the
 	// shape) or after build(), same as the old registerMSDF() name required. Pre-build calls are
 	// queued and actually rendered inside build() itself (tile rendering needs each shape's final
 	// position in the packed atlas texture, which build() computes); post-build calls render
 	// immediately, same as before. Either way there is no second "remember to come back after
-	// build()" step -- requestMSDF() is safe to call exactly once, wherever it's naturally reached
+	// build()" step - requestMSDF() is safe to call exactly once, wherever it's naturally reached
 	// in authoring order.
 	// range controls the em-space spread of the distance gradient (default 0.1).
 	// coloring selects the msdfgen edge-coloring algorithm: ByDistance eliminates corner
@@ -1472,7 +1472,7 @@ public:
 	// call (lazy). depth == number of layers; width == height == tileSize.
 	//
 	// Shape::msdfLayer is updated in-place once a tile is actually rendered, so callers can read
-	// it from getShape() without a separate lookup -- but note that for a pre-build requestMSDF()
+	// it from getShape() without a separate lookup - but note that for a pre-build requestMSDF()
 	// call, that update doesn't happen until build() drains the queue, not at the requestMSDF()
 	// call site itself.
 	// --------------------------------------------------------------------------------------------
@@ -1484,7 +1484,7 @@ public:
 	uint32_t getMSDFTileSize() const;
 
 	// Returns the assigned layer index once rendered, or -1 if the call was queued (pre-build)
-	// rather than rendered immediately -- read Shape::msdfLayer via getShape() after build() to
+	// rather than rendered immediately - read Shape::msdfLayer via getShape() after build() to
 	// recover it in that case.
 	int requestMSDF(
 		Key key,
@@ -1551,7 +1551,7 @@ public:
 
 	void loadFromSerial(SerialData&& sd) {
 		// _texWidth must match whatever width the atlas was actually BUILT with, not
-		// whatever DEFAULT_TEXTURE_WIDTH happens to be at deserialization time -- every
+		// whatever DEFAULT_TEXTURE_WIDTH happens to be at deserialization time - every
 		// row/column texel calculation (including the shader's band-offset bit-shift math)
 		// depends on it. curveData/bandData both carry the real width from the file.
 		_texWidth = sd.curveData.width;
@@ -1623,7 +1623,7 @@ private:
 	// Shared core of requestMSDF()'s immediate path and build()'s drain of _pendingMSDF: filters
 	// already-registered keys, renders remaining tiles (parallel when SLUGHORN_HAS_PARALLEL),
 	// commits serially for deterministic layer ordering. Assumes every key already exists in
-	// _shapes -- callers are responsible for that check (differs by pre/post-build call site).
+	// _shapes - callers are responsible for that check (differs by pre/post-build call site).
 	void _commitMSDF(const std::vector<Key>& keys, slug_t range, MSDFEdgeColoring coloring);
 #endif
 
@@ -1651,7 +1651,7 @@ private:
 	mutable TextureData _msdfData; // packed lazily by getMSDFTextureData()
 	mutable bool _msdfDirty = false; // set true once a tile is actually rendered, cleared on pack
 
-	// requestMSDF() calls made before build() -- rendered has no valid atlas-texture position for
+	// requestMSDF() calls made before build() - rendered has no valid atlas-texture position for
 	// a shape until build()'s packTextures() runs, so these wait and get drained there instead.
 	struct PendingMSDF { Key key; slug_t range; MSDFEdgeColoring coloring; };
 	std::vector<PendingMSDF> _pendingMSDF;
@@ -1826,7 +1826,7 @@ struct CurveDecomposer {
 
 		// Control point duplicates the endpoint rather than sitting at the exact midpoint.
 		// A midpoint control point makes the shader's quadratic coefficient degenerate to
-		// (near-)zero, which is numerically unstable to solve for directly -- rounding noise
+		// (near-)zero, which is numerically unstable to solve for directly - rounding noise
 		// in the stored midpoint (worse at reduced precision, e.g. RGBA16F curve textures, but
 		// present at any precision) can push it just past the "treat as linear" epsilon and
 		// into the fragile branch, producing visible jaggies on straight edges under zoom.

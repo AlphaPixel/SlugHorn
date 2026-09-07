@@ -77,7 +77,7 @@ struct LoadConfig {
 	uint8_t mask = 0;
 
 	// Set internally by withFace()'s callers that want a bad font path to raise instead of
-	// returning a failure sentinel (e.g. loadFontGlyphs/loadAllFontGlyphs) -- not intended to be
+	// returning a failure sentinel (e.g. loadFontGlyphs/loadAllFontGlyphs) - not intended to be
 	// set by callers of the public load*() API.
 	bool throwOnOpenFailure = false;
 
@@ -1351,7 +1351,7 @@ size_t loadGlyphs(
 	}
 
 	return count;
-	// -- end loadGlyphsUniform (inlined) --
+	// - end loadGlyphsUniform (inlined) --
 }
 
 size_t loadAllGlyphs(FT_Face face, Atlas& atlas, LoadConfig* config) {
