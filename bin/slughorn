@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import array
 import code
 import contextlib
 import importlib
@@ -111,6 +112,14 @@ def format_key(key) -> str:
 		return f"U+{cp:04X}" + (f" {label}" if label else "")
 
 	return key.name
+
+# Unlike format_key(), always filesystem-safe (no quoting, no "/" from a name key) -- used to
+# derive one filename per shape when dumping every MSDF layer in an atlas at once.
+def safe_key_filename(key) -> str:
+	if key_type_name(key) == "Codepoint":
+		return f"U+{key.codepoint:04X}"
+
+	return key.name.replace("/", "_")
 
 def load_atlas(path: str):
 	if not hasattr(slughorn, "read"):
@@ -255,21 +264,74 @@ def timer(enabled: bool, label: str):
 	if enabled:
 		print(f"{label}: {time.perf_counter() - start:.3f}s")
 
+# grid.shape/grid[::-1]/grid[y, x] used to work here because render_grid() returned a real
+# py::array_t (NumPy array). e65a890 ("drop the numpy dependancy") switched it to the plain
+# buffer-protocol Grid class (only .width/.height + the buffer itself, no __getitem__/.shape) and
+# updated test_render.py to match (memoryview(grid).cast("B").cast("f")) -- this call site was
+# missed, so this has been raising AttributeError on every `render` invocation since 2026-06-05.
 def save_image(grid, filename: str, flip_y: bool=False) -> str:
-	if flip_y:
-		grid = grid[::-1]
-
-	h, w = grid.shape
+	w, h = grid.width, grid.height
+	floats = memoryview(grid).cast("B").cast("f")
 	img = Image.new("L", (w, h))
 	px = img.load()
 
 	for y in range(h):
+		src_y = h - 1 - y if flip_y else y
+
 		for x in range(w):
-			px[x, y] = int(clamp(float(grid[y, x]), 0.0, 1.0) * 255)
+			px[x, y] = int(clamp(floats[src_y * w + x], 0.0, 1.0) * 255)
 
 	img.save(filename)
 
 	return f"Saved {w}x{h} image -> {filename}"
+
+# One MSDF layer's raw floats -> clamped/scaled RGB bytes, row 0 first.
+#
+# atlas.get_msdf_texture_data() hands back a flat memoryview (no shape info -- unlike
+# render_grid()'s Grid, this one wasn't wrapped with py::buffer_protocol()); tile_size and depth
+# have to come from atlas.msdf_tile_size / atlas.packing_stats.msdf_layer_count instead. Values
+# are already clamped to [0, 1] by renderMSDFTile() before packing (edge pixel = 0.5), but we
+# clamp again defensively since that's an implementation detail of the C++ side, not a contract.
+#
+# Deliberately stdlib-only (array + a plain loop, same shape as save_image()'s pixel loop above)
+# rather than numpy -- this CLI has no numpy dependency today and one conversion routine isn't
+# reason enough to add one.
+def msdf_layer_to_rgb_bytes(data, layer: int, tile_size: int, flip_y: bool) -> bytes:
+	floats_per_layer = tile_size * tile_size * 3
+	byte_offset = layer * floats_per_layer * 4
+	byte_length = floats_per_layer * 4
+
+	floats = array.array("f")
+	floats.frombytes(data[byte_offset:byte_offset + byte_length])
+
+	out = bytearray(len(floats))
+
+	for i, v in enumerate(floats):
+		out[i] = int(clamp(v, 0.0, 1.0) * 255.0 + 0.5)
+
+	if not flip_y:
+		return bytes(out)
+
+	# renderMSDFTile() packs row 0 = bottom of the shape (GPU/osg::Image convention, see its
+	# doc comment) -- flip here so the saved PNG reads right-side-up for a human, same intent as
+	# renderMSDF()'s own flip on the C++ side (see render_msdf, not used here since this reads
+	# the atlas's already-baked texture data rather than re-rendering from the font outline).
+	row_stride = tile_size * 3
+	flipped = bytearray(len(out))
+
+	for row in range(tile_size):
+		src = row * row_stride
+		dst = (tile_size - 1 - row) * row_stride
+		flipped[dst:dst + row_stride] = out[src:src + row_stride]
+
+	return bytes(flipped)
+
+def save_msdf_layer(data, layer: int, tile_size: int, filename: str, flip_y: bool=True) -> str:
+	rgb = msdf_layer_to_rgb_bytes(data, layer, tile_size, flip_y)
+
+	Image.frombytes("RGB", (tile_size, tile_size), rgb).save(filename)
+
+	return f"Saved {tile_size}x{tile_size} image -> {filename}"
 
 def build_curves_svg_string(
 	decoded,
@@ -651,6 +713,55 @@ def command_render(args) -> int:
 
 	return 0
 
+def command_msdf(args) -> int:
+	atlas = load_atlas(args.atlas)
+	layer_count = atlas.packing_stats.msdf_layer_count
+
+	if layer_count == 0:
+		fail("atlas has no MSDF tiles (request_msdf() was never called before build())")
+
+	tile_size = atlas.msdf_tile_size
+	data = atlas.get_msdf_texture_data()
+	flip_y = not args.no_flip_y
+	has_key = args.key is not None or args.ord is not None
+
+	if has_key:
+		key = resolve_key_arg(args.key, args.ord)
+		shape = get_shape_or_fail(atlas, key)
+
+		if shape.msdf_layer < 0:
+			fail(f"key {format_key(key)} has no MSDF tile (request_msdf() was never called for it)")
+
+		output = args.output or default_output_path(args.key or args.ord, ".png")
+
+		with timer(args.time, "write"):
+			message = save_msdf_layer(data, shape.msdf_layer, tile_size, output, flip_y=flip_y)
+
+		print(message)
+
+		return 0
+
+	output_dir = Path(args.output or f"{Path(args.atlas).stem}.msdf")
+
+	output_dir.mkdir(parents=True, exist_ok=True)
+
+	count = 0
+
+	with timer(args.time, "write"):
+		for key, shape in atlas.get_shapes().items():
+			if shape.msdf_layer < 0:
+				continue
+
+			path = output_dir / f"{safe_key_filename(key)}.png"
+
+			save_msdf_layer(data, shape.msdf_layer, tile_size, str(path), flip_y=flip_y)
+
+			count += 1
+
+	print(f"Saved {count} MSDF layer(s) -> {output_dir}/")
+
+	return 0
+
 def command_svg(args) -> int:
 	atlas = load_atlas(args.atlas)
 	key = resolve_key_arg(args.key, args.ord)
@@ -847,6 +958,22 @@ def build_parser() -> argparse.ArgumentParser:
 	render.add_argument("--time", action="store_true", help="Print timing for render/write stages.")
 	render.add_argument("--ord", metavar="CHAR", help="Resolve a single character to its codepoint (alternative to a hex key).")
 	render.set_defaults(func=command_render)
+
+	msdf = sub.add_parser("msdf", help="Dump baked MSDF texture layer(s) to PNG.")
+	msdf.add_argument("atlas", help="Path to a .slug or .slugb atlas file.")
+	msdf.add_argument("key", nargs="?", help="Dump only this shape's MSDF layer.")
+	msdf.add_argument(
+		"output", nargs="?",
+		help="With a key/--ord: output PNG path (default: <key>.png). Without one: output "
+		"directory to dump every registered layer into (default: <atlas>.msdf/)."
+	)
+	msdf.add_argument("--ord", metavar="CHAR", help="Resolve a single character to its codepoint (alternative to a hex key).")
+	msdf.add_argument(
+		"--no-flip-y", action="store_true",
+		help="Keep the baked GPU row order (row 0 = bottom) instead of flipping for natural on-screen viewing."
+	)
+	msdf.add_argument("--time", action="store_true", help="Print timing for the write stage.")
+	msdf.set_defaults(func=command_msdf)
 
 	svg = sub.add_parser("svg", help="Export decoded curves and band boundaries as SVG.")
 	svg.add_argument("atlas", help="Path to a .slug or .slugb atlas file.")
