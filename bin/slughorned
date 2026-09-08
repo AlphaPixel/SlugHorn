@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-slughorned -- PySide6 SVG Layer Viewer for slughorn curve debugging.
+slughorned - PySide6 SVG Layer Viewer for slughorn curve debugging.
 
 Uses pure QPainter software rendering (no QGraphicsView / no OpenGL).
 
@@ -10,14 +10,14 @@ Usage:
 	slughorned font.slug
 
 Keys / Controls:
-	Left/Right or A/D -- previous / next layer
-	Mouse wheel -- zoom in/out (anchored at cursor)
-	Click + drag -- pan
-	F -- fit to window
-	R -- reset zoom to 1:1
-	Ctrl+O -- open file(s)
-	Ctrl+Shift+O -- open directory
-	1-9 -- jump to layer N
+	Left/Right or A/D - previous / next layer
+	Mouse wheel - zoom in/out (anchored at cursor)
+	Click + drag - pan
+	F - fit to window
+	R - reset zoom to 1:1
+	Ctrl+O - open file(s)
+	Ctrl+Shift+O - open directory
+	1-9 - jump to layer N
 """
 
 import importlib.util
@@ -62,7 +62,7 @@ from PySide6.QtSvg import QSvgRenderer
 
 
 # ---------------------------------------------------------------------------
-# slughorn bin loader -- imports bin/slughorn (no .py extension) via importlib
+# slughorn bin loader - imports bin/slughorn (no .py extension) via importlib
 # ---------------------------------------------------------------------------
 def _load_slughorn_bin():
 	import types
@@ -102,7 +102,7 @@ class SvgViewport(QWidget):
 	"""
 	Renders an SVG via QSvgRenderer + QPainter directly onto a QWidget.
 	Supports zoom (scroll wheel) and pan (click-drag).
-	No QGraphicsView, no OpenGL -- just software rasterisation.
+	No QGraphicsView, no OpenGL - just software rasterisation.
 	"""
 
 	def __init__(self, parent=None):
@@ -169,7 +169,7 @@ class SvgViewport(QWidget):
 
 		# Build the destination rect in widget coords: the SVG's viewBox
 		# scaled by our zoom factor and offset by our pan. QSvgRenderer
-		# maps the SVG's own viewBox into this target rect -- exactly the
+		# maps the SVG's own viewBox into this target rect - exactly the
 		# same thing EOG / librsvg does internally.
 		vb = self._svg_viewbox
 		dst = QRectF(
@@ -448,7 +448,7 @@ class SlugSvgViewer(QMainWindow):
 		self._viewport.set_svg(renderer, vb)
 
 		self._status.showMessage(
-			f"{label}  --  {int(vb.width())}x{int(vb.height())} viewBox"
+			f"{label}  -  {int(vb.width())}x{int(vb.height())} viewBox"
 		)
 
 	# ---- Navigation -------------------------------------------------------
