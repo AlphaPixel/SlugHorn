@@ -46,6 +46,7 @@
 	select,
 	input[type="range"],
 	input[type="search"],
+	input[type="text"],
 	button {
 		background: var(--panel2);
 		color: var(--text);
@@ -60,6 +61,11 @@
 
 	input[type="search"] {
 		width: 220px;
+	}
+
+	input[type="text"]#customCp {
+		width: 150px;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 	}
 
 	button {
@@ -204,6 +210,10 @@
 		<label for="search">Emoji</label>
 		<input id="search" type="search" placeholder="filter: dragon, heart..." />
 
+		<label for="customCp">Codepoint</label>
+		<input id="customCp" type="text" placeholder="0x1F600 or U+1F600" />
+		<button id="customGo">Go</button>
+
 		<button id="reloadEmoji">Reload emoji.hpp</button>
 		<button id="fit">Fit</button>
 
@@ -265,6 +275,8 @@ const hud = document.getElementById("hud");
 const sizeRange = document.getElementById("sizeRange");
 const sizeLabel = document.getElementById("sizeLabel");
 const search = document.getElementById("search");
+const customCp = document.getElementById("customCp");
+const customGo = document.getElementById("customGo");
 const reloadEmoji = document.getElementById("reloadEmoji");
 const fitButton = document.getElementById("fit");
 const stageWrap = document.getElementById("stageWrap");
@@ -286,6 +298,41 @@ function cpToHex(cp) {
 
 function cpToString(cp) {
 	return String.fromCodePoint(cp);
+}
+
+// Accepts "0x1F600", "U+1F600", or a bare "1F600" - always parsed as hex.
+function parseCodepointInput(text) {
+	const match = text.trim().match(/^(?:0x|U\+)?([0-9A-Fa-f]+)$/i);
+
+	if(!match) return null;
+
+	const cp = parseInt(match[1], 16);
+
+	if(!Number.isFinite(cp) || cp < 0 || cp > 0x10FFFF) return null;
+
+	return cp;
+}
+
+// Jumps to an arbitrary codepoint even if it's not in emoji.hpp's name table (e.g. the legacy
+// PUA codepoints some COLRv1 fonts use for flags/blend-mode test glyphs). Adds it to the browsable
+// list (once) rather than only rendering it ad hoc, so it stays selectable/searchable afterward.
+function goToCustomCodepoint() {
+	const cp = parseCodepointInput(customCp.value);
+
+	if(cp === null) {
+		setStatus(`Invalid codepoint: "${customCp.value}" (try 0x1F600 or U+1F600)`);
+		return;
+	}
+
+	const existing = emojis.find(([, c]) => c === cp);
+	const entry = existing || [`custom ${cpToHex(cp)}`, cp];
+
+	if(!existing) emojis = [entry, ...emojis];
+
+	selected = entry;
+	search.value = "";
+
+	renderList();
 }
 
 function basename(path) {
@@ -557,6 +604,12 @@ function initInput() {
 
 	search.addEventListener("input", () => {
 		renderList();
+	});
+
+	customGo.addEventListener("click", goToCustomCodepoint);
+
+	customCp.addEventListener("keydown", event => {
+		if(event.key === "Enter") goToCustomCodepoint();
 	});
 
 	reloadEmoji.addEventListener("click", async () => {

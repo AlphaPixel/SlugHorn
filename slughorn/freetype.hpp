@@ -570,6 +570,17 @@ static Color resolveColor(FT_Color* palette, uint32_t colorIndex) {
 			&iterator
 		);
 
+		// layerKey packs layerIdx into the low 8 bits (see traversePaint's COMPOSITE comment for
+		// the same limit on the COLRv1 side) - past 256 layers it wraps and starts silently
+		// aliasing/overwriting earlier atlas shapes at the same key. Warn once, right before that
+		// happens, rather than let it corrupt shapes with no diagnostic at all.
+		if(layerIdx == 0xFFu) doLog(
+			config.log, LOG_WARN,
+			"U+", std::hex, codepoint, std::dec,
+			" has more than 256 COLR layers - layerIdx will wrap and alias atlas keys; ",
+			"later layers WILL silently overwrite earlier ones"
+		);
+
 		layerIdx++;
 	}
 }
@@ -606,6 +617,49 @@ static std::vector<GradientStop> extractColorStops(
 	}
 
 	return stops;
+}
+
+// Maps FreeType's COLRv1 FT_Composite_Mode onto slughorn::BlendMode. The two enums don't share
+// numeric values (slughorn's Porter-Duff block is ordered SrcOver-first for backward-compat; its
+// Photoshop block starts at 20), so this has to be an explicit table, not a cast. FT_COLR_COMPOSITE_
+// PLUS and the four HSL_* modes have no slughorn::BlendMode equivalent and fall back to SrcOver.
+static slughorn::BlendMode toBlendMode(FT_Composite_Mode mode, const LoadConfig& config) {
+	using BM = slughorn::BlendMode;
+
+	switch(mode) {
+		case FT_COLR_COMPOSITE_CLEAR: return BM::Clear;
+		case FT_COLR_COMPOSITE_SRC: return BM::Src;
+		case FT_COLR_COMPOSITE_DEST: return BM::Dst;
+		case FT_COLR_COMPOSITE_SRC_OVER: return BM::SrcOver;
+		case FT_COLR_COMPOSITE_DEST_OVER: return BM::DstOver;
+		case FT_COLR_COMPOSITE_SRC_IN: return BM::SrcIn;
+		case FT_COLR_COMPOSITE_DEST_IN: return BM::DstIn;
+		case FT_COLR_COMPOSITE_SRC_OUT: return BM::SrcOut;
+		case FT_COLR_COMPOSITE_DEST_OUT: return BM::DstOut;
+		case FT_COLR_COMPOSITE_SRC_ATOP: return BM::SrcAtop;
+		case FT_COLR_COMPOSITE_DEST_ATOP: return BM::DstAtop;
+		case FT_COLR_COMPOSITE_XOR: return BM::Xor;
+		case FT_COLR_COMPOSITE_SCREEN: return BM::Screen;
+		case FT_COLR_COMPOSITE_OVERLAY: return BM::Overlay;
+		case FT_COLR_COMPOSITE_DARKEN: return BM::Darken;
+		case FT_COLR_COMPOSITE_LIGHTEN: return BM::Lighten;
+		case FT_COLR_COMPOSITE_COLOR_DODGE: return BM::ColorDodge;
+		case FT_COLR_COMPOSITE_COLOR_BURN: return BM::ColorBurn;
+		case FT_COLR_COMPOSITE_HARD_LIGHT: return BM::HardLight;
+		case FT_COLR_COMPOSITE_SOFT_LIGHT: return BM::SoftLight;
+		case FT_COLR_COMPOSITE_DIFFERENCE: return BM::Difference;
+		case FT_COLR_COMPOSITE_EXCLUSION: return BM::Exclusion;
+		case FT_COLR_COMPOSITE_MULTIPLY: return BM::Multiply;
+
+		default:
+			doLog(
+				config.log, LOG_INFO,
+				"COLRv1 CompositeMode ", static_cast<int>(mode),
+				" has no slughorn::BlendMode equivalent - using SrcOver"
+			);
+
+			return BM::SrcOver;
+	}
 }
 
 static PaintResult traversePaint(
@@ -730,6 +784,17 @@ static PaintResult traversePaint(
 			layer.gradientId = result.gradientId;
 
 			out.layers.push_back(layer);
+
+			// See the matching check in processColorGlyphV0 - layerKey packs layerIdx into the
+			// low 8 bits, so past 256 real PaintGlyph leaves it wraps and starts silently
+			// aliasing/overwriting earlier atlas shapes at the same key. Some real-world COLRv1
+			// glyphs (an intricate coat-of-arms flag, say) blow well past this.
+			if(layerIdx == 0xFFu) doLog(
+				config.log, LOG_WARN,
+				"U+", std::hex, codepoint, std::dec,
+				" has more than 256 COLR layers - layerIdx will wrap and alias atlas keys; ",
+				"later layers WILL silently overwrite earlier ones"
+			);
 
 			layerIdx++;
 
@@ -883,22 +948,75 @@ static PaintResult traversePaint(
 		}
 
 		// -----------------------------------------------------------------
-		// Composite - render both paints, blend mode ignored for now
+		// Composite - draw backdrop, then blend source over it using CompositeMode.
 		//
-		// TODO: honour CompositeMode
+		// Two shapes we actually handle:
+		//
+		// 1. source_paint bottoms out at a PaintGlyph of its own -> it drew its own layer(s);
+		//    just tag those with this node's blend mode.
+		//
+		// 2. source_paint is a bare Solid/Gradient (no shape of its own) -> there's nothing for
+		//    it to have drawn; re-use the backdrop's just-emitted shapes as its silhouette
+		//    instead, refilled with the source's paint and tagged with this node's blend mode.
+		//
+		// A third shape is common in this font specifically: source_paint is ANOTHER Composite
+		// whose own source is a bare fill - the idiom for "clip a gradient to my silhouette via
+		// SRC_IN, then blend that onto myself via some other mode" (used ~262x in Noto Color
+		// Emoji for a gloss/sheen highlight). A true isolated-group composite would rasterize the
+		// inner SRC_IN result separately before blending it in; we don't have an offscreen group
+		// to do that in, so we approximate: skip straight past the inner composite to ITS fill,
+		// and drop its backdrop + mode entirely - the inner composite's only real job was
+		// producing a clip mask, which we get for free by reusing backdrop_paint's silhouette
+		// below, and its backdrop is (in every observed case) a byte-for-byte duplicate of ours.
+		// This only unwraps one extra level; deeper chains fall through to case 1 or 2 above using
+		// whatever the nested composite's OWN traversal actually drew.
 		// -----------------------------------------------------------------
 		case FT_COLR_PAINTFORMAT_COMPOSITE: {
+			const size_t layersBeforeBackdrop = out.layers.size();
+
 			traversePaint(
 				face, &paint.u.composite.backdrop_paint, palette,
 				emScale, advance, parentMatrix,
 				codepoint, layerIdx, atlas, out, config
 			);
 
-			return traversePaint(
-				face, &paint.u.composite.source_paint, palette,
+			const size_t layersAfterBackdrop = out.layers.size();
+
+			const FT_OpaquePaint* fillSource = &paint.u.composite.source_paint;
+			FT_COLR_Paint sourcePeek;
+
+			if(
+				FT_Get_Paint(face, *fillSource, &sourcePeek) &&
+				sourcePeek.format == FT_COLR_PAINTFORMAT_COMPOSITE
+			) fillSource = &sourcePeek.u.composite.source_paint;
+
+			const PaintResult sourceResult = traversePaint(
+				face, fillSource, palette,
 				emScale, advance, parentMatrix,
 				codepoint, layerIdx, atlas, out, config
 			);
+
+			const slughorn::BlendMode blendMode = toBlendMode(paint.u.composite.composite_mode, config);
+
+			if(out.layers.size() == layersAfterBackdrop) {
+				for(size_t i = layersBeforeBackdrop; i < layersAfterBackdrop; i++) {
+					Layer clone = out.layers[i];
+
+					clone.color = sourceResult.color;
+					clone.gradientId = sourceResult.gradientId;
+					clone.blendMode = blendMode;
+
+					out.layers.push_back(clone);
+				}
+			}
+
+			else {
+				for(size_t i = layersAfterBackdrop; i < out.layers.size(); i++) {
+					out.layers[i].blendMode = blendMode;
+				}
+			}
+
+			return sourceResult;
 		}
 
 		// -----------------------------------------------------------------
